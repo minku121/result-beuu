@@ -22,6 +22,9 @@ const Index = () => {
   const retryLoopActiveRef = useRef(false);
   const [parallelCount, setParallelCount] = useState(5);
   const currentParamsRef = useRef<{ session: string; redg_no: string; semester: number } | null>(null);
+  const autoRetryEnabledAtSubmitRef = useRef(false);
+  const [retryActive, setRetryActive] = useState(false);
+  const [retryStats, setRetryStats] = useState<{ sent: number; failed: number; pending: number }>({ sent: 0, failed: 0, pending: 0 });
 
   const cancelRetryLoop = () => {
     retryLoopActiveRef.current = false;
@@ -29,6 +32,8 @@ const Index = () => {
       clearTimeout(retryTimeoutRef.current);
       retryTimeoutRef.current = null;
     }
+    setRetryActive(false);
+    setRetryStats((s) => ({ ...s, pending: 0 }));
   };
 
   const singleAttempt = async (params: { session: string; redg_no: string; semester: number; }, i: number) => {
@@ -37,6 +42,7 @@ const Index = () => {
     const { url, init } = resolver(params.redg_no);
     const finalUrl = url + (url.includes("?") ? `&__ts=${Date.now()}_${i}_${Math.random()}` : `?__ts=${Date.now()}_${i}_${Math.random()}`);
     try {
+      setRetryStats((s) => ({ ...s, sent: s.sent + 1, pending: s.pending + 1 }));
       const resp = await fetch(finalUrl, init);
       if (!resp.ok) throw new Error(`Status ${resp.status}`);
       const data = await resp.json();
@@ -44,8 +50,10 @@ const Index = () => {
       const normalized = normalizeResult(params.session, params.semester, params.redg_no, data);
       const hasName = normalized?.data?.name && String(normalized.data.name).trim().length > 0;
       if (!hasName) throw new Error("Incomplete");
+      setRetryStats((s) => ({ ...s, pending: Math.max(0, s.pending - 1) }));
       return normalized;
     } catch {
+      setRetryStats((s) => ({ ...s, failed: s.failed + 1, pending: Math.max(0, s.pending - 1) }));
       return null;
     }
   };
@@ -54,8 +62,10 @@ const Index = () => {
     if (!autoRetryEnabled) return;
     if (retryLoopActiveRef.current) return;
     retryLoopActiveRef.current = true;
+    setRetryActive(true);
+    setRetryStats({ sent: 0, failed: 0, pending: 0 });
     toast({ title: "Auto fetching started", description: `Running ${Math.max(1, parallelCount)} parallel attempts` });
-    const slots = Math.max(1, parallelCount);
+    const slots = Math.max(1, Math.min(5, parallelCount));
     let stopped = false;
     const launch = async (slotIndex: number) => {
       if (stopped || !retryLoopActiveRef.current) return;
@@ -68,6 +78,7 @@ const Index = () => {
       }
       stopped = true;
       retryLoopActiveRef.current = false;
+      setRetryActive(false);
       setResult(res);
       setError(null);
       if (retryTimeoutRef.current) {
@@ -88,6 +99,7 @@ const Index = () => {
   }) => {
     cancelRetryLoop();
     currentParamsRef.current = params;
+    autoRetryEnabledAtSubmitRef.current = autoRetryEnabled;
     setIsLoading(true);
     setError(null);
     setResult(null);
@@ -120,12 +132,17 @@ const Index = () => {
       const normalized = normalizeResult(params.session, params.semester, params.redg_no, data);
       const hasName = normalized?.data?.name && String(normalized.data.name).trim().length > 0;
       if (!hasName) {
-        const msg = "Server returned incomplete data (missing name). Auto retrying...";
-        setError(msg);
-        toast({ title: "Server slow", description: msg, variant: "destructive" });
-        if (autoRetryEnabled) {
+        const autoOn = autoRetryEnabledAtSubmitRef.current;
+        if (autoOn) {
+          const msg = "Server returned incomplete data (missing name). Auto retrying...";
+          setError(msg);
+          toast({ title: "Server slow", description: msg, variant: "destructive" });
           if (retryTimeoutRef.current) clearTimeout(retryTimeoutRef.current);
           startAggressiveParallelRetry(params);
+        } else {
+          const msg = "Server returned incomplete data (missing name). Please try again.";
+          setError(msg);
+          toast({ title: "Unable to fetch", description: msg, variant: "destructive" });
         }
         return;
       }
@@ -146,7 +163,7 @@ const Index = () => {
         description: errorMessage,
         variant: "destructive",
       });
-      if (autoRetryEnabled) {
+      if (autoRetryEnabledAtSubmitRef.current) {
         if (retryTimeoutRef.current) clearTimeout(retryTimeoutRef.current);
         startAggressiveParallelRetry(params);
       }
@@ -230,13 +247,23 @@ const Index = () => {
                       id="parallelCount"
                       type="number"
                       min={1}
-                      max={10}
+                      max={5}
                       value={parallelCount}
-                      onChange={(e) => setParallelCount(Math.max(1, Math.min(10, parseInt(e.target.value || ""))))}
+                      onChange={(e) => setParallelCount(Math.max(1, Math.min(5, parseInt(e.target.value || ""))))}
                     />
                   </div>
                 )}
               </div>
+              {autoRetryEnabled && retryActive && (
+                <div className="flex items-center justify-between bg-muted/30 rounded-lg p-3 mb-4">
+                  <div className="flex gap-4 text-sm">
+                    <span className="text-foreground">Sent: {retryStats.sent}</span>
+                    <span className="text-destructive">Failed: {retryStats.failed}</span>
+                    <span className="text-primary">Pending: {retryStats.pending}</span>
+                  </div>
+                  <button className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2" onClick={cancelRetryLoop}>Stop retrying</button>
+                </div>
+              )}
               <ResultForm onSubmit={fetchResult} isLoading={isLoading} />
             </CardContent>
           </Card>

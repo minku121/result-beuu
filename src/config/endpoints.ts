@@ -10,6 +10,10 @@ const endpointMap: Record<string, Record<number, EndpointResolver>> = {
     1: (regNo) => ({
       url: `https://beu-bih.ac.in/backend/v1/result/get-result?year=2024&redg_no=${encodeURIComponent(regNo)}&semester=I&exam_held=May/2025`,
     }),
+    2: (regNo) => ({
+      url: `https://beu-bih.ac.in/backend/v1/result/get-result?year=2024&redg_no=${encodeURIComponent(regNo)}&semester=II&exam_held=November/2025`,
+    }),
+   
   },
 
 

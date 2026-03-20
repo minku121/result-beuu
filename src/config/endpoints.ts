@@ -6,6 +6,16 @@ export type EndpointRequest = {
 type EndpointResolver = (regNo: string) => EndpointRequest;
 
 const endpointMap: Record<string, Record<number, EndpointResolver>> = {
+
+   "2025-29": {
+    1: (regNo) => ({
+      url: `https://beu-bih.ac.in/backend/v1/result/get-result?year=2026&redg_no=${encodeURIComponent(regNo)}&semester=I&exam_held=January/2026`,
+    }),
+   
+   
+  },
+
+
   "2024-28": {
     1: (regNo) => ({
       url: `https://beu-bih.ac.in/backend/v1/result/get-result?year=2024&redg_no=${encodeURIComponent(regNo)}&semester=I&exam_held=May/2025`,
@@ -23,6 +33,12 @@ const endpointMap: Record<string, Record<number, EndpointResolver>> = {
    
     3: (regNo) => ({
       url: `https://beu-bih.ac.in/backend/v1/result/get-result?year=2024&redg_no=${encodeURIComponent(regNo)}&semester=III&exam_held=July/2025`,
+    }),
+     4: (regNo) => ({
+      url: `https://beu-bih.ac.in/backend/v1/result/get-result?year=2025&redg_no=${encodeURIComponent(regNo)}&semester=IV&exam_held=December/2025`,
+    }),
+      5: (regNo) => ({
+      url: `https://beu-bih.ac.in/backend/v1/result/get-result?year=2026&redg_no=${encodeURIComponent(regNo)}&semester=V&exam_held=June/2026`,
     }),
   },
 

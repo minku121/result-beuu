@@ -15,7 +15,7 @@ interface ResultFormProps {
   isLoading: boolean;
 }
 
-const sessions = ["2024-28", "2023-27", "2022-26", "2021-25"];
+const sessions = ["2025-29", "2024-28", "2023-27", "2022-26", "2021-25"];
 const semestersNumeric = [1, 2, 3, 4, 5, 6, 7, 8];
 
 export function ResultForm({ onSubmit, isLoading }: ResultFormProps) {

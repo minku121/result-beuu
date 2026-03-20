@@ -55,7 +55,7 @@ const endpointMap: Record<string, Record<number, EndpointResolver>> = {
 
 
   
-
+  "2021-25": {},
 };
 
 export function getEndpoint(session: string, semester: number): EndpointResolver | null {
